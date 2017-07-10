@@ -1,0 +1,95 @@
+---
+title: "Reproducible Research Course Project 1"
+author: "Kyle Ward"
+date: "July 9, 2017"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+This an R markdown file generated for completion of the Coursera Reproducible Research Course Project 1. The following computations and visualizations are performed using the ggplot2, dplyr, and scales packages.  For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+# What is mean total number of steps taken per day?
+
+```{r read data}
+setwd("~/Documents/Documents/Important Files/Hopkins/Data Science/Reproducable Research/Week 2/projectdata")
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(activity$date, "%Y-%m-%d")
+activity <- as.data.frame(activity)
+```
+```{r Plotting and calculating mean and median of steps take by day}
+library(ggplot2)
+total.steps <- tapply(activity$steps, activity$date, FUN=sum, na.rm=TRUE)
+qplot(total.steps, binwidth=1000, xlab="total number of steps taken each day")
+mean(total.steps, na.rm=TRUE)
+median(total.steps, na.rm=TRUE)
+```
+
+## What is the average daily activity pattern?
+
+
+```{r calculate mean for each interval}
+library(ggplot2)
+averages <- aggregate(x=list(steps=activity$steps), by=list(interval=activity$interval),
+                      FUN=mean, na.rm=TRUE)
+ggplot(data=averages, aes(x=interval, y=steps)) +
+        geom_line() +
+        xlab("5-minute interval") +
+        ylab("average number of steps taken")
+averages[which.max(averages$steps),]
+library(scales)
+sum(is.na(activity))
+percent(sum(is.na(activity))/nrow(activity))
+```
+
+On average across all the days in the dataset, the 5-minute interval contains the maximum number of steps?
+
+```{r average}
+averages[which.max(averages$steps),]
+```
+
+# Imputing Missing Values
+```{r Imputing Missing Values}
+missing <- is.na(activity$steps)
+table(missing)
+fill.value <- function(steps, interval) {
+        filled <- NA
+        if (!is.na(steps))
+                filled <- c(steps)
+        else
+                filled <- (averages[averages$interval==interval, "steps"])
+        return(filled)
+}
+filled.activity <- activity
+filled.activity$steps <- mapply(fill.value, filled.activity$steps, filled.activity$interval)
+
+total.steps <- tapply(filled.activity$steps, filled.activity$date, FUN=sum)
+qplot(total.steps, binwidth=1000, xlab="total number of steps taken each day")
+mean(total.steps)
+median(total.steps)
+```
+
+# Are there differences in activity patterns between weekdays and weekends?
+
+```{r Differences between weekdays and weekends}
+weekday.or.weekend <- function(date) {
+        day <- weekdays(date)
+        if (day %in% c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday"))
+                return("weekday")
+        else if (day %in% c("Saturday", "Sunday"))
+                return("weekend")
+        else
+                stop("invalid date")
+}
+filled.activity$date <- as.Date(filled.activity$date)
+filled.activity$day <- sapply(filled.activity$date, FUN=weekday.or.weekend)
+
+averages <- aggregate(steps ~ interval + day, data=filled.activity, mean)
+ggplot(averages, aes(interval, steps)) + geom_line() + facet_grid(day ~ .) +
+        xlab("5-minute interval") + ylab("Number of steps")
+```
